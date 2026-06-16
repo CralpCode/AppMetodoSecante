@@ -1,0 +1,5 @@
+{
+  "name": "Método de la Secante",
+  "description": "Una aplicación interactiva y amigable para calcular raíces de polinomios utilizando el método numérico de la secante.",
+  "requestFramePermissions": []
+}

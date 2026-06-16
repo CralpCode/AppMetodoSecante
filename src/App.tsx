@@ -1,0 +1,272 @@
+import React, { useState } from 'react';
+import { evaluate, parse } from 'mathjs';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+import { Calculator, Play, RefreshCw } from 'lucide-react';
+
+interface Iteracion {
+  k: number;
+  x0: number;
+  x1: number;
+  f_x0: number;
+  f_x1: number;
+  xSiguiente: number;
+  error: number | null;
+}
+
+export default function App() {
+  const [expresion, setExpresion] = useState('x^3 - x - 2');
+  const [x0, setX0] = useState('1.0');
+  const [x1, setX1] = useState('2.0');
+  const [tolerancia, setTolerancia] = useState('0.0001');
+  const [iteraciones, setIteraciones] = useState<Iteracion[]>([]);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+
+  const formulaLatex = (expr: string) => {
+    try {
+      return parse(expr).toTex();
+    } catch {
+      return expr;
+    }
+  };
+
+  const calcular = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorBanner(null);
+
+    const valX0 = parseFloat(x0);
+    const valX1 = parseFloat(x1);
+    const valTol = parseFloat(tolerancia);
+
+    if (isNaN(valX0) || isNaN(valX1) || isNaN(valTol)) {
+      setErrorBanner('Por favor ingresa números válidos.');
+      return;
+    }
+
+    if (valX0 === valX1) {
+      setErrorBanner('Los puntos iniciales x0 y x1 deben ser diferentes.');
+      return;
+    }
+
+    const funcionX = (x: number): number => {
+      return evaluate(expresion, { x });
+    };
+
+    const nuevasIteraciones: Iteracion[] = [];
+    let currX0 = valX0;
+    let currX1 = valX1;
+
+    try {
+      for (let k = 1; k <= 3; k++) {
+        const f_x0 = funcionX(currX0);
+        const f_x1 = funcionX(currX1);
+
+        const den = f_x1 - f_x0;
+        if (Math.abs(den) < 1e-15) {
+          setErrorBanner(`División por cero en la iteración ${k} (las alturas f(x0) y f(x1) coinciden).`);
+          break;
+        }
+
+        const xSiguiente = currX1 - (f_x1 * (currX1 - currX0)) / den;
+        let error: number | null = null;
+        if (Math.abs(xSiguiente) > 1e-12) {
+          error = Math.abs((xSiguiente - currX1) / xSiguiente) * 100;
+        } else {
+          error = Math.abs(xSiguiente - currX1) * 100;
+        }
+
+        nuevasIteraciones.push({
+          k,
+          x0: currX0,
+          x1: currX1,
+          f_x0,
+          f_x1,
+          xSiguiente,
+          error
+        });
+
+        if (error !== null && error < valTol) {
+          break;
+        }
+
+        currX0 = currX1;
+        currX1 = xSiguiente;
+      }
+      setIteraciones(nuevasIteraciones);
+    } catch (err: any) {
+      setErrorBanner(`Error en el cálculo: ${err.message}`);
+    }
+  };
+
+  const restablecer = () => {
+    setExpresion('x^3 - x - 2');
+    setX0('1.0');
+    setX1('2.0');
+    setTolerancia('0.0001');
+    setIteraciones([]);
+    setErrorBanner(null);
+  };
+
+  const renderTex = (tex: string) => {
+    return katex.renderToString(tex, { throwOnError: false });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 antialiased flex flex-col font-sans">
+      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-xs">
+        <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <span>Método de la Secante</span>
+        </h1>
+        <button
+          onClick={restablecer}
+          className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50 transition-colors"
+          title="Restablecer"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto p-6 space-y-6">
+        {errorBanner && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-sm">
+            {errorBanner}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <form onSubmit={calcular} className="md:col-span-1 bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm h-fit">
+            <h2 className="font-semibold text-slate-800 text-sm flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              <Calculator className="w-4 h-4 text-indigo-600" />
+              <span>Parámetros de Entrada</span>
+            </h2>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                Fórmula de <span dangerouslySetInnerHTML={{ __html: renderTex('f(x)') }} />:
+              </label>
+              <input
+                type="text"
+                value={expresion}
+                onChange={(e) => setExpresion(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                placeholder="Ej. x^3 - x - 2"
+                required
+              />
+              {expresion.trim() && (
+                <div className="mt-1.5 text-xs text-slate-500 flex flex-col gap-1">
+                  <span>Vista previa:</span>
+                  <div
+                    className="p-2 bg-slate-50 border border-slate-200/60 rounded-lg text-slate-800 overflow-x-auto text-center flex justify-center min-h-[36px] items-center"
+                    dangerouslySetInnerHTML={{ __html: renderTex(`f(x) = ${formulaLatex(expresion)}`) }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                  Punto <span dangerouslySetInnerHTML={{ __html: renderTex('x_0') }} />:
+                </label>
+                <input
+                  type="text"
+                  value={x0}
+                  onChange={(e) => setX0(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                  Punto <span dangerouslySetInnerHTML={{ __html: renderTex('x_1') }} />:
+                </label>
+                <input
+                  type="text"
+                  value={x1}
+                  onChange={(e) => setX1(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                Tolerancia <span dangerouslySetInnerHTML={{ __html: renderTex('Tol\\ (\\%)') }} />:
+              </label>
+              <input
+                type="text"
+                value={tolerancia}
+                onChange={(e) => setTolerancia(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5" />
+              <span>Calcular</span>
+            </button>
+          </form>
+
+          <div className="md:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-hidden flex flex-col justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-800 text-sm mb-3 border-b border-slate-100 pb-2">
+                Resultados del Cálculo
+              </h2>
+
+              {iteraciones.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs italic">
+                  Ingresa los parámetros y presiona Calcular para ver los resultados de las 3 iteraciones.
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs min-w-[550px]">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
+                        <th className="py-2.5 px-3 text-center">k</th>
+                        <th className="py-2.5 px-3" dangerouslySetInnerHTML={{ __html: renderTex('x_{k-1}') }} />
+                        <th className="py-2.5 px-3" dangerouslySetInnerHTML={{ __html: renderTex('x_k') }} />
+                        <th className="py-2.5 px-3" dangerouslySetInnerHTML={{ __html: renderTex('f(x_{k-1})') }} />
+                        <th className="py-2.5 px-3" dangerouslySetInnerHTML={{ __html: renderTex('f(x_k)') }} />
+                        <th className="py-2.5 px-3 text-indigo-600 font-bold" dangerouslySetInnerHTML={{ __html: renderTex('x_{k+1}') }} />
+                        <th className="py-2.5 px-3 text-right" dangerouslySetInnerHTML={{ __html: renderTex('E_a\\ (\\%)') }} />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono text-slate-700">
+                      {iteraciones.map((row) => (
+                        <tr key={row.k} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-400">{row.k}</td>
+                          <td className="py-2.5 px-3">{row.x0.toFixed(6)}</td>
+                          <td className="py-2.5 px-3">{row.x1.toFixed(6)}</td>
+                          <td className="py-2.5 px-3 text-slate-500">{row.f_x0.toFixed(6)}</td>
+                          <td className="py-2.5 px-3 text-slate-500">{row.f_x1.toFixed(6)}</td>
+                          <td className="py-2.5 px-3 font-bold text-indigo-600">{row.xSiguiente.toFixed(6)}</td>
+                          <td className="py-2.5 px-3 text-right">
+                            {row.error !== null ? `${row.error.toFixed(4)}%` : '--'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {iteraciones.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
+                La raíz estimada al final de las 3 iteraciones es:{' '}
+                <strong className="text-indigo-600 font-mono text-sm select-all">
+                  {iteraciones[iteraciones.length - 1].xSiguiente.toFixed(8)}
+                </strong>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
