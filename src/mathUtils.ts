@@ -14,15 +14,12 @@ export interface IteracionSecanteModificada {
   k: number;
   x: number;
   f_x: number;
-  x_pert: number; // x + delta * x
-  f_x_pert: number; // f(x + delta * x)
+  x_pert: number;
+  f_x_pert: number;
   xSiguiente: number;
   error: number | null;
 }
 
-/**
- * Convierte una expresión matemática en su formato LaTeX para representación visual.
- */
 export const formulaLatex = (expr: string): string => {
   try {
     return parse(expr).toTex();
@@ -31,9 +28,6 @@ export const formulaLatex = (expr: string): string => {
   }
 };
 
-/**
- * Calcula raíces usando el Método de la Secante Estándar.
- */
 export function calcularSecante(
   expresion: string,
   x0Val: number,
@@ -93,9 +87,6 @@ export function calcularSecante(
   }
 }
 
-/**
- * Calcula raíces usando el Método de la Secante Modificada.
- */
 export function calcularSecanteModificada(
   expresion: string,
   x0Val: number,
@@ -113,8 +104,7 @@ export function calcularSecanteModificada(
   try {
     for (let k = 1; k <= maxIter; k++) {
       const f_x = funcionX(currX);
-      
-      // Si currX es muy cercano a 0, usamos delta directo para evitar una perturbación de 0
+
       const pert = Math.abs(currX) > 1e-12 ? delta * currX : delta;
       const xPert = currX + pert;
       const f_xPert = funcionX(xPert);
