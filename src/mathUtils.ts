@@ -36,7 +36,7 @@ export function calcularSecante(
   maxIter: number = 10
 ): { iteraciones: IteracionSecante[]; error: string | null } {
   const funcionX = (x: number): number => {
-    return evaluate(expresion, { x });
+    return evaluate(expresion, { x, ln: Math.log });
   };
 
   const iteraciones: IteracionSecante[] = [];
@@ -95,7 +95,7 @@ export function calcularSecanteModificada(
   maxIter: number = 10
 ): { iteraciones: IteracionSecanteModificada[]; error: string | null } {
   const funcionX = (x: number): number => {
-    return evaluate(expresion, { x });
+    return evaluate(expresion, { x, ln: Math.log });
   };
 
   const iteraciones: IteracionSecanteModificada[] = [];
